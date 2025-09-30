@@ -33,7 +33,9 @@ jobs:
       - name: 🔍 Collect Real Evidence
         run: |
           python scripts/collect_real_evidence.py
-
+      - name: 🐛 Debug OPA Issue
+        run: |
+          python scripts/debug_opa.py
       - name: ⚖️ Evaluate with OPA
         run: |
           python scripts/evaluate_with_opa.py
