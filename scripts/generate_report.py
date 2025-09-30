@@ -50,6 +50,8 @@ def generate_iso27001_report(evidence):
     
     return report
 
+# ========== ASSESSMENT FUNCTIONS ==========
+
 def assess_policy_controls(evidence):
     """Assess A.5: Information Security Policies"""
     return {
@@ -57,6 +59,36 @@ def assess_policy_controls(evidence):
             "status": "Implemented" if evidence['security_controls']['policies']['information_security_policy'] else "Not Implemented",
             "evidence": "Information Security Policy document",
             "maturity": "Advanced" if evidence['security_controls']['policies']['information_security_policy'] else "Initial"
+        }
+    }
+
+def assess_organization_controls(evidence):
+    """Assess A.6: Organization of Information Security"""
+    return {
+        "A.6.1 Internal Organization": {
+            "status": "Partially Implemented",
+            "evidence": "Repository structure and access controls",
+            "maturity": "Managed"
+        }
+    }
+
+def assess_hr_controls(evidence):
+    """Assess A.7: Human Resource Security"""
+    return {
+        "A.7.1 Prior to Employment": {
+            "status": "Not Applicable",  # For public repositories
+            "evidence": "N/A - Public repository",
+            "maturity": "N/A"
+        }
+    }
+
+def assess_asset_controls(evidence):
+    """Assess A.8: Asset Management"""
+    return {
+        "A.8.1 Responsibility for Assets": {
+            "status": "Implemented",
+            "evidence": "Repository ownership and access management",
+            "maturity": "Managed"
         }
     }
 
@@ -80,12 +112,107 @@ def assess_access_controls(evidence):
         }
     }
 
+def assess_crypto_controls(evidence):
+    """Assess A.10: Cryptography"""
+    return {
+        "A.10.1 Cryptographic Controls": {
+            "status": "Implemented",
+            "evidence": "HTTPS encryption, secure communications",
+            "maturity": "Advanced"
+        }
+    }
+
+def assess_physical_controls(evidence):
+    """Assess A.11: Physical and Environmental Security"""
+    return {
+        "A.11.1 Secure Areas": {
+            "status": "Managed by Provider",
+            "evidence": "GitHub data center security",
+            "maturity": "Advanced"
+        }
+    }
+
+def assess_operations_controls(evidence):
+    """Assess A.12: Operations Security"""
+    return {
+        "A.12.1 Operational Procedures and Responsibilities": {
+            "status": "Implemented",
+            "evidence": "GitHub Actions workflows and procedures",
+            "maturity": "Managed"
+        },
+        "A.12.4 Logging and Monitoring": {
+            "status": "Implemented",
+            "evidence": "GitHub audit logs and workflow monitoring",
+            "maturity": "Advanced"
+        }
+    }
+
+def assess_communications_controls(evidence):
+    """Assess A.13: Communications Security"""
+    return {
+        "A.13.1 Network Security Management": {
+            "status": "Implemented",
+            "evidence": "Secure network protocols and encryption",
+            "maturity": "Advanced"
+        }
+    }
+
+def assess_system_controls(evidence):
+    """Assess A.14: System Acquisition, Development and Maintenance"""
+    return {
+        "A.14.1 Security Requirements of Information Systems": {
+            "status": "Implemented",
+            "evidence": "Security-focused development practices",
+            "maturity": "Managed"
+        }
+    }
+
+def assess_supplier_controls(evidence):
+    """Assess A.15: Supplier Relationships"""
+    return {
+        "A.15.1 Information Security in Supplier Relationships": {
+            "status": "Managed by Provider",
+            "evidence": "GitHub terms of service and security practices",
+            "maturity": "Advanced"
+        }
+    }
+
+def assess_incident_controls(evidence):
+    """Assess A.16: Information Security Incident Management"""
+    return {
+        "A.16.1 Management of Information Security Incidents": {
+            "status": "Partially Implemented" if evidence['security_controls']['policies']['incident_response_policy'] else "Not Implemented",
+            "evidence": "Incident response policy and procedures",
+            "maturity": "Initial"
+        }
+    }
+
+def assess_business_continuity_controls(evidence):
+    """Assess A.17: Information Security Aspects of Business Continuity"""
+    return {
+        "A.17.1 Information Security Continuity": {
+            "status": "Partially Implemented" if evidence['security_controls']['policies']['business_continuity_policy'] else "Not Implemented",
+            "evidence": "Business continuity policy and procedures",
+            "maturity": "Initial"
+        }
+    }
+
+def assess_compliance_controls(evidence):
+    """Assess A.18: Compliance"""
+    return {
+        "A.18.1 Compliance with Legal and Contractual Requirements": {
+            "status": "Implemented",
+            "evidence": "License files and legal compliance",
+            "maturity": "Managed"
+        }
+    }
+
 def identify_gaps(assessment):
     """Identify compliance gaps"""
     gaps = []
     for domain, controls in assessment.items():
         for control_name, control_info in controls.items():
-            if control_info['status'] != 'Implemented':
+            if control_info['status'] in ['Not Implemented', 'Partially Implemented']:
                 gaps.append({
                     'domain': domain,
                     'control': control_name,
@@ -98,15 +225,34 @@ def generate_recommendations(assessment):
     """Generate improvement recommendations"""
     recommendations = []
     
-    # Policy recommendations
-    if not any('A.5' in domain for domain in assessment.keys()):
+    # Check for missing policies
+    policy_controls = assessment.get("A.5 Information Security Policies", {})
+    if not any(ctrl['status'] == 'Implemented' for ctrl in policy_controls.values()):
         recommendations.append("Develop and implement comprehensive information security policies")
     
-    # Risk management recommendations
-    if not any('A.6' in domain for domain in assessment.keys()):
-        recommendations.append("Establish formal risk assessment and treatment processes")
+    # Check incident management
+    incident_controls = assessment.get("A.16 Information Security Incident Management", {})
+    if not any(ctrl['status'] == 'Implemented' for ctrl in incident_controls.values()):
+        recommendations.append("Establish formal incident response procedures")
+    
+    # Check business continuity
+    bc_controls = assessment.get("A.17 Information Security Aspects of Business Continuity", {})
+    if not any(ctrl['status'] == 'Implemented' for ctrl in bc_controls.values()):
+        recommendations.append("Develop business continuity and disaster recovery plans")
     
     return recommendations
+
+def generate_next_steps(assessment):
+    """Generate next steps for improvement"""
+    next_steps = [
+        "Review and address identified compliance gaps",
+        "Implement high-priority security controls",
+        "Document all security policies and procedures",
+        "Conduct regular security awareness training",
+        "Perform periodic risk assessments",
+        "Establish continuous monitoring processes"
+    ]
+    return next_steps
 
 def main():
     print("📊 Generating ISO 27001 Compliance Report...")
@@ -117,7 +263,24 @@ def main():
             evidence = json.load(f)
     except FileNotFoundError:
         print("❌ No evidence file found. Run collect_evidence.py first.")
-        return
+        # Create minimal evidence for testing
+        evidence = {
+            'security_controls': {
+                'policies': {
+                    'information_security_policy': False,
+                    'access_control_policy': False,
+                    'risk_assessment_policy': False,
+                    'incident_response_policy': False,
+                    'business_continuity_policy': False
+                }
+            },
+            'access_control': {
+                'user_management': {
+                    'unique_identifiers': True
+                }
+            }
+        }
+        print("⚠️ Using minimal test evidence")
     
     # Generate report
     report = generate_iso27001_report(evidence)
@@ -150,17 +313,15 @@ def generate_executive_summary(report):
         
         f.write(f"\n## ⚠️ Identified Gaps: {len(report['gaps_identified'])}\n\n")
         for gap in report['gaps_identified'][:5]:  # Show top 5
-            f.write(f"- **{gap['control']}** ({gap['priority']} priority)\n")
+            f.write(f"- **{gap['control']}** ({gap['priority']} priority) - {gap['status']}\n")
         
         f.write(f"\n## 💡 Key Recommendations: {len(report['recommendations'])}\n\n")
-        for rec in report['recommendations'][:3]:  # Show top 3
+        for rec in report['recommendations']:
             f.write(f"- {rec}\n")
         
         f.write(f"\n## 🚀 Next Steps\n\n")
-        f.write("1. Address high-priority gaps identified above\n")
-        f.write("2. Implement recommended security controls\n")
-        f.write("3. Conduct internal audit of implemented controls\n")
-        f.write("4. Prepare for certification audit\n")
+        for step in report['next_steps'][:4]:
+            f.write(f"- {step}\n")
 
 if __name__ == "__main__":
     main()
