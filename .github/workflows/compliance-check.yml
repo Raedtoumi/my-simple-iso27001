@@ -1,18 +1,13 @@
-name: 🛡️ ISO 27001 Compliance Check - DEBUG
+name: 🛡️ ISO 27001 Compliance Check with OPA
 
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
   workflow_dispatch:
-    inputs:
-      test-mode:
-        description: 'Run in test mode'
-        required: false
-        default: true
-        type: boolean
 
 jobs:
-
   compliance-check:
     runs-on: ubuntu-latest
     steps:
@@ -38,8 +33,6 @@ jobs:
       - name: 🔍 Collect Real Evidence
         run: |
           python scripts/collect_real_evidence.py
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: ⚖️ Evaluate with OPA
         run: |
@@ -68,4 +61,6 @@ jobs:
           echo "=== COMPLIANCE CHECK COMPLETE ==="
           if [ -f reports/final_compliance_report.md ]; then
             cat reports/final_compliance_report.md
+          else
+            echo "❌ Aucun rapport trouvé - vérifiez l'exécution des scripts"
           fi
