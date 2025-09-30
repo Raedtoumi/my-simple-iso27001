@@ -1,0 +1,100 @@
+name: 🛡️ ISO 27001 Compliance Check - DEBUG
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      test-mode:
+        description: 'Run in test mode'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  compliance-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get all history
+
+      - name: 🏷️ Show Git Info
+        run: |
+          echo "🔍 Repository: $GITHUB_REPOSITORY"
+          echo "🔍 Branch: $GITHUB_REF"
+          echo "🔍 Commit: $GITHUB_SHA"
+          echo "🔍 Triggered by: $GITHUB_ACTOR"
+          echo "📁 Current files:"
+          ls -la
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: 🔍 Debug Python Environment
+        run: |
+          echo "🐍 Python version:"
+          python --version
+          echo "📦 Pip version:"
+          pip --version
+          echo "📁 Scripts directory:"
+          ls -la scripts/
+
+      - name: 📦 Install Dependencies
+        run: |
+          echo "📦 Checking requirements.txt..."
+          cat requirements.txt
+          echo "🚀 Installing dependencies..."
+          pip install -r requirements.txt
+          echo "✅ Installed packages:"
+          pip list
+
+      - name: 🧪 Run Tests Step by Step
+        run: |
+          echo "=== 🧪 STEP 1: Check Scripts ==="
+          python scripts/collect_evidence.py --help 2>/dev/null || echo "No --help option, but script exists"
+          
+          echo "=== 🧪 STEP 2: Run Evidence Collection ==="
+          python scripts/collect_evidence.py
+          
+          echo "=== 🧪 STEP 3: Verify Evidence ==="
+          if [ -f evidence/compliance_evidence.json ]; then
+            echo "✅ Evidence file created successfully!"
+            echo "📄 Evidence content preview:"
+            head -20 evidence/compliance_evidence.json
+          else
+            echo "❌ Evidence file missing!"
+          fi
+
+      - name: 📊 Generate Reports
+        run: |
+          echo "=== 📊 Generating Reports ==="
+          python scripts/generate_report.py
+          
+          echo "📁 Reports directory contents:"
+          ls -la reports/
+          
+          if [ -f reports/compliance_summary.md ]; then
+            echo "✅ Markdown report created!"
+            echo "📋 Report preview:"
+            head -10 reports/compliance_summary.md
+          fi
+
+      - name: 🎯 Final Validation
+        run: |
+          echo "=== ✅ FINAL VALIDATION ==="
+          echo "📊 Compliance Score: $(jq -r '.compliance_score' reports/compliance_report.json 2>/dev/null || echo 'Unknown')%"
+          echo "📈 Checks Passed: $(jq -r '.summary.passed' reports/compliance_report.json 2>/dev/null || echo 'Unknown')"
+          echo "🎉 Workflow execution: SUCCESS"
+
+      - name: 📤 Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-reports-${{ github.run_id }}
+          path: |
+            evidence/
+            reports/
+          retention-days: 30
