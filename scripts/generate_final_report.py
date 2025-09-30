@@ -6,17 +6,12 @@ from datetime import datetime
 def generate_final_report():
     """Génère le rapport final de conformité"""
     
-    # Vérifier si les résultats OPA existent
-    if not os.path.exists('reports/opa_evaluation_results.json'):
-        print("❌ Fichier OPA results non trouvé. Exécutez d'abord evaluate_with_opa.py")
-        return create_fallback_report()
-    
     # Charger les résultats OPA
     try:
         with open('reports/opa_evaluation_results.json', 'r') as f:
             opa_results = json.load(f)
-    except:
-        print("❌ Erreur lecture OPA results")
+    except FileNotFoundError:
+        print("❌ Fichier OPA results non trouvé. Exécutez d'abord evaluate_with_opa.py")
         return create_fallback_report()
     
     # Charger les preuves
@@ -93,7 +88,7 @@ def generate_recommendations(opa_results, evidence):
     """Génère les recommandations d'amélioration"""
     recommendations = []
     
-    # Recommandations basées sur les scores
+    # Recommandations basées sur les scores OPA
     scores = opa_results.get("scores", {})
     for category, score in scores.items():
         if score < 60:
@@ -104,17 +99,16 @@ def generate_recommendations(opa_results, evidence):
     if policies.get("total_policies", 0) < 2:
         recommendations.append("Créer les politiques de sécurité manquantes (au moins 2)")
     
-    if policies.get("opa_policies", 0) < 3:
-        recommendations.append("Développer plus de politiques OPA (actuellement: {})".format(
-            policies.get("opa_policies", 0)
-        ))
-    
     system = evidence.get("system", {})
     if not system.get("has_tests", False):
         recommendations.append("Implémenter des tests automatisés")
     
-    if not system.get("has_github_actions", False):
-        recommendations.append("Configurer GitHub Actions pour la CI/CD")
+    github = evidence.get("github", {})
+    security_features = github.get("security_features", {})
+    if not security_features.get("code_scanning", False):
+        recommendations.append("Configurer le code scanning GitHub")
+    if not security_features.get("dependabot", False):
+        recommendations.append("Configurer Dependabot pour la gestion des vulnérabilités")
     
     return recommendations
 
@@ -138,8 +132,10 @@ def generate_markdown_report(report, evidence):
         score = report['summary']['overall_compliance_score']
         f.write(f"## 🎯 Score Global de Conformité: {score}%\n\n")
         
-        # Barre de progression visuelle
-        progress_bar = "🟩" * (score // 20) + "⬜" * (5 - (score // 20))
+        # Barre de progression visuelle - CORRIGÉE
+        filled_bars = int(score // 20)
+        empty_bars = 5 - filled_bars
+        progress_bar = "🟩" * filled_bars + "⬜" * empty_bars
         f.write(f"{progress_bar}\n\n")
         
         f.write("## 📊 Statut de Conformité par Catégorie\n\n")
@@ -147,7 +143,9 @@ def generate_markdown_report(report, evidence):
         if status_dict and "error" not in str(status_dict):
             for category, status in status_dict.items():
                 emoji = "✅" if status == "CONFORME" else "⚠️" if status == "PARTIELLEMENT CONFORME" else "❌"
-                f.write(f"{emoji} **{category}**: {status}\n")
+                # Trouver le score pour cette catégorie
+                category_score = report['summary'].get('scores', {}).get(category, "N/A")
+                f.write(f"{emoji} **{category}**: {status} ({category_score}%)\n")
         else:
             f.write("❌ *Données de conformité non disponibles*\n")
         
