@@ -12,89 +12,60 @@ on:
         type: boolean
 
 jobs:
+
   compliance-check:
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Get all history
-
-      - name: 🏷️ Show Git Info
-        run: |
-          echo "🔍 Repository: $GITHUB_REPOSITORY"
-          echo "🔍 Branch: $GITHUB_REF"
-          echo "🔍 Commit: $GITHUB_SHA"
-          echo "🔍 Triggered by: $GITHUB_ACTOR"
-          echo "📁 Current files:"
-          ls -la
 
       - name: 🐍 Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: 🔍 Debug Python Environment
+      - name: 📦 Install OPA
         run: |
-          echo "🐍 Python version:"
-          python --version
-          echo "📦 Pip version:"
-          pip --version
-          echo "📁 Scripts directory:"
-          ls -la scripts/
+          curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v0.60.0/opa_linux_amd64_static
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+          opa version
 
-      - name: 📦 Install Dependencies
+      - name: 📦 Install Python dependencies
         run: |
-          echo "📦 Checking requirements.txt..."
-          cat requirements.txt
-          echo "🚀 Installing dependencies..."
           pip install -r requirements.txt
-          echo "✅ Installed packages:"
-          pip list
 
-      - name: 🧪 Run Tests Step by Step
+      - name: 🔍 Collect Real Evidence
         run: |
-          echo "=== 🧪 STEP 1: Check Scripts ==="
-          python scripts/collect_evidence.py --help 2>/dev/null || echo "No --help option, but script exists"
-          
-          echo "=== 🧪 STEP 2: Run Evidence Collection ==="
-          python scripts/collect_evidence.py
-          
-          echo "=== 🧪 STEP 3: Verify Evidence ==="
-          if [ -f evidence/compliance_evidence.json ]; then
-            echo "✅ Evidence file created successfully!"
-            echo "📄 Evidence content preview:"
-            head -20 evidence/compliance_evidence.json
-          else
-            echo "❌ Evidence file missing!"
-          fi
+          python scripts/collect_real_evidence.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 📊 Generate Reports
+      - name: ⚖️ Evaluate with OPA
         run: |
-          echo "=== 📊 Generating Reports ==="
-          python scripts/generate_report.py
-          
-          echo "📁 Reports directory contents:"
-          ls -la reports/
-          
-          if [ -f reports/compliance_summary.md ]; then
-            echo "✅ Markdown report created!"
-            echo "📋 Report preview:"
-            head -10 reports/compliance_summary.md
-          fi
+          python scripts/evaluate_with_opa.py
 
-      - name: 🎯 Final Validation
+      - name: 📊 Generate Final Report
         run: |
-          echo "=== ✅ FINAL VALIDATION ==="
-          echo "📊 Compliance Score: $(jq -r '.compliance_score' reports/compliance_report.json 2>/dev/null || echo 'Unknown')%"
-          echo "📈 Checks Passed: $(jq -r '.summary.passed' reports/compliance_report.json 2>/dev/null || echo 'Unknown')"
-          echo "🎉 Workflow execution: SUCCESS"
+          python scripts/generate_final_report.py
 
-      - name: 📤 Upload Artifacts
+      - name: 📁 Upload Evidence
         uses: actions/upload-artifact@v4
         with:
-          name: debug-reports-${{ github.run_id }}
-          path: |
-            evidence/
-            reports/
+          name: compliance-evidence
+          path: evidence/
           retention-days: 30
+
+      - name: 📄 Upload Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-reports
+          path: reports/
+          retention-days: 30
+
+      - name: 🎯 Show Results
+        run: |
+          echo "=== COMPLIANCE CHECK COMPLETE ==="
+          if [ -f reports/final_compliance_report.md ]; then
+            cat reports/final_compliance_report.md
+          fi
